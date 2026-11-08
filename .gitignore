@@ -1,0 +1,88 @@
+# ---------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Packaging and build output
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+wheels/
+pip-wheel-metadata/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.hypothesis/
+.tox/
+.nox/
+
+# Test coverage
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Local environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# ---------------------------------------------------------------
+# macOS
+# ---------------------------------------------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+.DocumentRevisions-V100
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# ---------------------------------------------------------------
+# Editors and IDEs
+# ---------------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# ---------------------------------------------------------------
+# Project-specific
+# ---------------------------------------------------------------
+# Real network data must never be committed. The tool stores
+# baselines and history in ~/.config and ~/.local/share, but these
+# patterns catch any copies made while developing or debugging.
+*.sqlite
+*.sqlite3
+*.db
+baseline*.json
+history*.json
+history*.csv
+
+# Scratch output from manual test runs (real IPs, ISPs, resolvers)
+scratch/
+*.local.json
+
+# Fake test fixtures (documentation-only IPs) are always committed
+!tests/fixtures/**
