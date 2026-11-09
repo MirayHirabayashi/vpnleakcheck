@@ -59,8 +59,8 @@ Record each choice and why, one line each, so later sessions don't reopen them.
 
 - (none yet)
 
-## Notes for my LinkedIn posts
+## Notes for my portfolio
 
-Concepts I learned and want to write about.
+Concepts I learned and want to share about.
 
 - (none yet)
