@@ -10,7 +10,7 @@ Updated at the end of every step. A new session starts by reading this file.
 Each milestone is split into small steps. One step = one small change I can read, run, and understand before moving on.
 
 ### M1 Skeleton
-- [ ] M1.1 `pyproject.toml` with uv: project metadata, Python 3.11+, src layout, `leakcheck` entry point
+- [ ] M1.1 `pyproject.toml` with uv: project metadata, Python 3.11+, src layout, `vpnleakcheck` entry point
 - [ ] M1.2 Minimal Typer app in `cli.py` with `--version` and `--help`
 - [ ] M1.3 ruff config + first pytest test (`--version` prints the version)
 - [ ] M1.4 `.gitignore`, short README stub, first commit
@@ -53,11 +53,23 @@ Each milestone is split into small steps. One step = one small change I can read
 
 Record each choice and why, one line each, so later sessions don't reopen them.
 
-- (none yet)
+- Name everything `vpnleakcheck`: PyPI distribution, import package (`src/vpnleakcheck/`), and CLI command. `leakcheck` is already taken on PyPI (checked 2026-11-10), and one name everywhere matches the GitHub repo and README.
 
 ## Open questions
 
-- (none yet)
+Resolve each one before (or during) the step in brackets.
+
+- [M5.3] Exit code clash: Typer/Click exits with 2 on usage errors, but the spec uses 2 for UNCERTAIN and 3 for usage errors. Remap Typer's usage errors to 3, or change the table?
+- [M3.3 / M5.1] Public DNS resolvers (1.1.1.1, 8.8.8.8, Quad9) used outside the tunnel would classify as "hosting" and hide a DNS leak. Add a separate `public-dns` class that doesn't count as VPN?
+- [M5.1] Verdict rules: which verdict wins when several rows match? What number counts as "too many checks unavailable"? How to handle a VPN on the router (no local VPN interface but the IPv4 is VPN-owned), which the current rules call NOT PROTECTED?
+- [M4.3] Linux VPN interface names don't always fit `wg*`/`tun*` (e.g. `nordlynx`, `wg0-mullvad`, custom WireGuard names). How much weight do interface names get vs. IPv4 ownership?
+- [M2.5] Behind a captive portal, HTTPS IP APIs usually fail with a TLS error or redirect instead of returning a login page. Treat those as captive-portal signals? Add a dedicated probe (e.g. `captive.apple.com`, would need vetting)?
+- [M2] 10-second goal vs. 5 s per-request timeout: checks must run concurrently. Async httpx or threads?
+- [M2.2 / M3.3] `known_providers.json` and the endpoint config ship inside the installed package, so users can't edit them after `pipx install`. Ship defaults plus an optional override in the user config directory?
+- [M1.4] `.gitignore`, README and LICENSE already exist and the remote is set up. Repurpose M1.4 (e.g. README update + GitHub Actions CI running ruff and pytest)?
+- [M5.4] Confirm my VPN lets me turn DNS protection off, for the manual test matrix.
+- [M7.3] README "Limitations" section: ownership lookups send your IP to a third party; browser DNS-over-HTTPS and WebRTC are invisible to a CLI.
+- [M1.1] Test on Python 3.11 now and then (`uv run --python 3.11 pytest`), since development uses 3.13.
 
 ## Notes for my portfolio
 

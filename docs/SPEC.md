@@ -4,7 +4,7 @@ Nov 8, 2026 · @Miray
 
 ## Overview
 
-`leakcheck` is a Python command-line tool that tells a traveler, in one command, whether their VPN is actually protecting them on the current network. It checks the public IPv4 and IPv6 addresses, the DNS resolver in use, and whether any of them reveal the user's real ISP or location.
+`vpnleakcheck` is a Python command-line tool that tells a traveler, in one command, whether their VPN is actually protecting them on the current network. It checks the public IPv4 and IPv6 addresses, the DNS resolver in use, and whether any of them reveal the user's real ISP or location.
 
 **Who it's for:** people who use a VPN on hotel, airport, and café Wi-Fi and want a quick, trustworthy "am I safe?" answer without opening several leak-test websites.
 
@@ -40,14 +40,14 @@ Every check compares what the outside internet sees with what a working VPN shou
 
 ## Level 1 requirements
 
-Level 1 is a single `leakcheck` command that runs all four checks and prints a verdict. No setup, no stored data.
+Level 1 is a single `vpnleakcheck` command that runs all four checks and prints a verdict. No setup, no stored data.
 
 **Command**
 
-- `leakcheck` runs every check and prints the report.
-- `leakcheck --json` prints the same results as JSON.
-- `leakcheck --timeout N` sets the per-request timeout in seconds (default 5).
-- `leakcheck --version` and `--help`.
+- `vpnleakcheck` runs every check and prints the report.
+- `vpnleakcheck --json` prints the same results as JSON.
+- `vpnleakcheck --timeout N` sets the per-request timeout in seconds (default 5).
+- `vpnleakcheck --version` and `--help`.
 
 **Functional requirements**
 
@@ -75,12 +75,12 @@ Level 2 adds a saved baseline of the user's real network, a kill-switch test, an
 
 **New commands**
 
-- `leakcheck baseline` saves the real network fingerprint. Run at home **with the VPN off**; the tool asks for confirmation and refuses if a VPN interface is up (unless `--force`).
-- `leakcheck baseline --show` and `leakcheck baseline --clear`.
-- `leakcheck` (default run) now compares results against the baseline.
-- `leakcheck killswitch` runs the kill-switch test.
-- `leakcheck history` lists past runs; `--last N` limits rows; `--export csv|json`.
-- `leakcheck watch --interval 30` re-runs checks every N seconds and alerts only when the verdict changes.
+- `vpnleakcheck baseline` saves the real network fingerprint. Run at home **with the VPN off**; the tool asks for confirmation and refuses if a VPN interface is up (unless `--force`).
+- `vpnleakcheck baseline --show` and `vpnleakcheck baseline --clear`.
+- `vpnleakcheck` (default run) now compares results against the baseline.
+- `vpnleakcheck killswitch` runs the kill-switch test.
+- `vpnleakcheck history` lists past runs; `--last N` limits rows; `--export csv|json`.
+- `vpnleakcheck watch --interval 30` re-runs checks every N seconds and alerts only when the verdict changes.
 
 **Baseline**
 
@@ -122,15 +122,15 @@ Python 3.11+, packaged with `pyproject.toml` and installable with `pipx install`
 | DNS lookups | dnspython | Query `whoami.akamai.net` and read the answer |
 | Network interfaces | psutil | List interfaces and their up/down state |
 | Storage (Level 2) | sqlite3 (standard library) | History with no extra dependency |
-| Config and baseline | JSON in `~/.config/leakcheck/` | Easy to read and edit |
+| Config and baseline | JSON in `~/.config/vpnleakcheck/` | Easy to read and edit |
 | Tests | pytest + respx | Mock HTTP responses, no network in tests |
 | Lint and format | ruff | One fast tool |
 
 ```
-leakcheck/
+vpnleakcheck/
 ├── pyproject.toml
 ├── README.md
-├── src/leakcheck/
+├── src/vpnleakcheck/
 │   ├── cli.py            # Typer app and subcommands
 │   ├── checks/
 │   │   ├── interfaces.py # local VPN interface detection
@@ -153,7 +153,7 @@ Each check returns the same small result object (name, status, value, owner, cla
 The report leads with the verdict, then one line per check, then what to do. Example values below are illustrative.
 
 ```
-$ leakcheck
+$ vpnleakcheck
 
   LEAKING: your DNS bypasses the VPN
 
@@ -163,7 +163,7 @@ $ leakcheck
   DNS resolver    198.51.100.7 (Hotel ISP, US)   LEAK  matches home ISP
 
   Fix: turn on your VPN's DNS protection, or set DNS manually
-  to your VPN provider's resolver, then run leakcheck again.
+  to your VPN provider's resolver, then run vpnleakcheck again.
 ```
 
 ```json
@@ -203,10 +203,10 @@ The tool only inspects the user's own connection, stores everything locally, and
 
 **Privacy rules**
 
-- Store data only in `~/.config/leakcheck/` and `~/.local/share/leakcheck/`; no telemetry, no accounts.
+- Store data only in `~/.config/vpnleakcheck/` and `~/.local/share/vpnleakcheck/`; no telemetry, no accounts.
 - Store only the first 64 bits of IPv6 addresses in the baseline.
 - Use only public, no-key lookup services by default; make the endpoints configurable.
-- `leakcheck history --clear` deletes all history.
+- `vpnleakcheck history --clear` deletes all history.
 
 **Safety rules**
 
@@ -218,7 +218,7 @@ The tool only inspects the user's own connection, stores everything locally, and
 
 Build in seven small milestones; each ends with something runnable and tested.
 
-- **M1 Skeleton:** `pyproject.toml`, Typer app, `leakcheck --version`, ruff and pytest set up.
+- **M1 Skeleton:** `pyproject.toml`, Typer app, `vpnleakcheck --version`, ruff and pytest set up.
 - **M2 IP checks:** public IPv4 from two services, IPv6 attempt, the shared result object.
 - **M3 Ownership:** ASN, organization, country lookup and the classification rules.
 - **M4 DNS and interfaces:** resolver detection and VPN interface detection.

@@ -1,6 +1,6 @@
 # vpnleakcheck
 
-Python CLI (`leakcheck`) that tells a traveler, in one command, whether their VPN is protecting them on the current network: public IPv4/IPv6, IP ownership, and DNS resolver checks, combined into one verdict.
+Python CLI (`vpnleakcheck`) that tells a traveler, in one command, whether their VPN is protecting them on the current network: public IPv4/IPv6, IP ownership, and DNS resolver checks, combined into one verdict.
 
 Full spec: @docs/SPEC.md
 Current progress: @docs/PROGRESS.md
@@ -8,7 +8,7 @@ Current progress: @docs/PROGRESS.md
 ## Commands
 
 - Install deps: `uv sync`
-- Run the CLI: `uv run leakcheck` (add `--json`, `--timeout N`)
+- Run the CLI: `uv run vpnleakcheck` (add `--json`, `--timeout N`)
 - Tests: `uv run pytest`
 - Lint and format: `uv run ruff check --fix . && uv run ruff format .`
 
@@ -29,7 +29,7 @@ I want to understand every part of this project, so we go step by step.
 
 ## Code rules
 
-- Python 3.11+, src layout (`src/leakcheck/`), packaged with pyproject.toml.
+- Python 3.11+, src layout (`src/vpnleakcheck/`), packaged with pyproject.toml.
 - Dependencies: typer, rich, httpx, dnspython, psutil. Tests: pytest, respx. Ask before adding anything else.
 - Every check returns the shared result object (name, status, value, owner, classification, reason). Verdict and report code must not depend on how a check works.
 - A failed request never crashes the tool. Mark that check `unavailable` and continue.
@@ -40,7 +40,7 @@ I want to understand every part of this project, so we go step by step.
 
 - Read-only. Never write code that changes DNS, routes, firewall rules, or VPN settings.
 - No root required. Never use sudo.
-- No telemetry. Store data only in `~/.config/leakcheck/` and `~/.local/share/leakcheck/`.
+- No telemetry. Store data only in `~/.config/vpnleakcheck/` and `~/.local/share/vpnleakcheck/`.
 - Store only the first 64 bits of an IPv6 address in a baseline.
 
 ## Platform notes
