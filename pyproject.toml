@@ -7,7 +7,9 @@ license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Miray Hirabayashi" }]
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "typer>=0.29.1",
+]
 
 [project.scripts]
 vpnleakcheck = "vpnleakcheck.cli:app"
