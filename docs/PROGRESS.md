@@ -3,7 +3,7 @@
 Updated at the end of every step. A new session starts by reading this file.
 
 **Current milestone:** M1 Skeleton
-**Current step:** M1.3 (not started)
+**Current step:** M1.4 (not started)
 
 ## Milestones
 
@@ -12,8 +12,8 @@ Each milestone is split into small steps. One step = one small change I can read
 ### M1 Skeleton
 - [x] M1.1 `pyproject.toml` with uv: project metadata, Python 3.11+, src layout, `vpnleakcheck` entry point
 - [x] M1.2 Minimal Typer app in `cli.py` with `--version` and `--help`
-- [ ] M1.3 ruff config + first pytest test (`--version` prints the version)
-- [ ] M1.4 `.gitignore`, short README stub, first commit
+- [x] M1.3 ruff config + first pytest test (`--version` prints the version)
+- [ ] M1.4 `.gitignore`, short README stub
 
 ### M2 IP checks
 - [ ] M2.1 Shared result object (name, status, value, owner, classification, reason)
@@ -62,6 +62,9 @@ Record each choice and why, one line each, so later sessions don't reopen them.
 - `--version` is an eager option with a callback, so it prints and exits before any other argument is parsed.
 - Shell completion options are hidden (`add_completion=False`) to keep `--help` short; revisit at M7 if wanted.
 - Development Python is 3.13 (`.python-version`); `requires-python` stays `>=3.11`. `uv.lock` is committed.
+- ruff and pytest are dev dependencies in `[dependency-groups] dev` (`uv add --dev`), so users who install the tool never get them. Their config lives in `pyproject.toml`, no extra config files.
+- ruff rules: `E`, `W`, `F`, `I`, `UP`, `B`, `SIM`; line length 88 (the default). Wider than ruff's default `E`/`F` but still low-noise; add more only when a rule would have caught a real problem.
+- CLI tests call the app in-process with Typer's `CliRunner` (no subprocess). The version test compares against `importlib.metadata`, not a hard-coded `0.1.0`, so a version bump doesn't break it.
 
 ## Open questions
 
@@ -85,3 +88,4 @@ Concepts I learned and want to share about.
 
 - What `pyproject.toml` does, and how a `[project.scripts]` entry point turns a Python function into a terminal command. Why the src layout forces you to test the installed package. Front end (uv) vs. build backend (uv_build).
 - How Typer turns a function signature into a CLI: type hints become options, the docstring becomes the help text. Callback vs. command, and why `--version` has to be an "eager" option.
+- Linter vs. formatter, and why ruff does both. How pytest discovers tests, and how `CliRunner` tests a CLI without starting a real process. Dev dependencies vs. runtime dependencies.

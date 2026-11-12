@@ -17,3 +17,21 @@ vpnleakcheck = "vpnleakcheck.cli:app"
 [build-system]
 requires = ["uv_build>=0.11.21,<0.12"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "ruff>=0.17.5",
+]
+
+[tool.ruff]
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# E/W: style, F: pyflakes (unused names, undefined names), I: import order,
+# UP: modern Python syntax, B: common bug patterns, SIM: simpler code.
+select = ["E", "W", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
