@@ -1,0 +1,49 @@
+name: CI
+
+# Run on every push to main and on every pull request.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# The job only needs to read the code, so give it nothing more.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Lint and test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      # Let the other Python version finish even if one fails,
+      # so we can see whether a failure is version-specific.
+      fail-fast: false
+      matrix:
+        # Oldest version we support, and the one we develop on.
+        python-version: ["3.11", "3.13"]
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Installs uv and tells it which Python to use. This overrides
+      # .python-version, which is how the 3.11 run really gets 3.11.
+      - name: Install uv and set the Python version
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # --locked fails if uv.lock is out of date with pyproject.toml,
+      # instead of quietly updating it.
+      - name: Install the project
+        run: uv sync --locked
+
+      # No --fix here: CI reports problems, it never edits code.
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Check formatting
+        run: uv run ruff format --check .
+
+      - name: Run tests
+        run: uv run pytest
