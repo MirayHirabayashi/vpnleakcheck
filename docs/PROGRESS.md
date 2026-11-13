@@ -65,6 +65,7 @@ Record each choice and why, one line each, so later sessions don't reopen them.
 - ruff and pytest are dev dependencies in `[dependency-groups] dev` (`uv add --dev`), so users who install the tool never get them. Their config lives in `pyproject.toml`, no extra config files.
 - ruff rules: `E`, `W`, `F`, `I`, `UP`, `B`, `SIM`; line length 88 (the default). Wider than ruff's default `E`/`F` but still low-noise; add more only when a rule would have caught a real problem.
 - CLI tests call the app in-process with Typer's `CliRunner` (no subprocess). The version test compares against `importlib.metadata`, not a hard-coded `0.1.0`, so a version bump doesn't break it.
+- The test `CliRunner` sets `TERM=dumb` so Rich prints plain text. Typer forces coloured output when `GITHUB_ACTIONS` is set, and the ANSI codes split `--version` in two, which broke the `--help` test on CI only. `NO_COLOR` doesn't help (it keeps bold).
 - M1.4 repurposed: `.gitignore`, README and LICENSE already existed, so the step became a README "Development" section plus CI. GitHub Actions is free for public repos.
 - CI (`.github/workflows/ci.yml`) runs on pushes to `main` and on pull requests, on `ubuntu-latest`, with a matrix of Python 3.11 (oldest supported) and 3.13 (development). Steps: `uv sync --locked`, `ruff check`, `ruff format --check`, `pytest`. CI never uses `--fix`.
 - Actions are pinned to full commit SHAs (with the version in a comment), as the uv docs do, so a moved tag can't change what runs. Update the SHA and the comment together.

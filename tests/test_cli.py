@@ -6,7 +6,9 @@ from typer.testing import CliRunner
 
 from vpnleakcheck.cli import app
 
-runner = CliRunner()
+# TERM=dumb makes Rich print plain text. Without it, Typer forces coloured
+# output on GitHub Actions, and the ANSI codes split "--version" in two.
+runner = CliRunner(env={"TERM": "dumb"})
 
 
 def test_version_prints_name_and_version() -> None:
