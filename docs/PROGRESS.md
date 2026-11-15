@@ -3,7 +3,7 @@
 Updated at the end of every step. A new session starts by reading this file.
 
 **Current milestone:** M2 IP checks
-**Current step:** M2.1 (not started)
+**Current step:** M2.2 (not started)
 
 ## Milestones
 
@@ -16,7 +16,7 @@ Each milestone is split into small steps. One step = one small change I can read
 - [x] M1.4 README "Development" section + GitHub Actions CI (ruff and pytest on Python 3.11 and 3.13). `.gitignore`, README stub and LICENSE already existed
 
 ### M2 IP checks
-- [ ] M2.1 Shared result object (name, status, value, owner, classification, reason)
+- [x] M2.1 Shared result object (name, status, value, owner, classification, reason)
 - [ ] M2.2 Endpoint config file; pick and verify two free, no-key IPv4 services
 - [ ] M2.3 IPv4 lookup from two services + disagreement warning, with respx tests
 - [ ] M2.4 IPv6-only lookup; timeout = "no IPv6 route"; ignore `fe80::`
@@ -70,6 +70,10 @@ Record each choice and why, one line each, so later sessions don't reopen them.
 - CI (`.github/workflows/ci.yml`) runs on pushes to `main` and on pull requests, on `ubuntu-latest`, with a matrix of Python 3.11 (oldest supported) and 3.13 (development). Steps: `uv sync --locked`, `ruff check`, `ruff format --check`, `pytest`. CI never uses `--fix`.
 - Actions are pinned to full commit SHAs (with the version in a comment), as the uv docs do, so a moved tag can't change what runs. Update the SHA and the comment together.
 - CI runs on Linux only for now. Add a `macos-latest` job at M4, when platform-specific code (`scutil --dns`, `utun`) arrives.
+- The shared result object is `CheckResult` in `src/vpnleakcheck/result.py`: a frozen dataclass (standard library, immutable once a check returns it, `dataclasses.asdict()` feeds `--json`). Only `name` and `status` are required; `value`, `owner` and `classification` default to `None` and `reason` to `""`.
+- `Status` (`ok`, `leak`, `unavailable`) and `Classification` (`vpn/hosting`, `isp/residential`, `mobile`, `unknown`) are `StrEnum`s: a typo fails at once, and members are real strings so they serialise to JSON unchanged. Add a `warning` status in M2.3 only if "services disagree" needs it.
+- `classification=None` means "doesn't apply to this check" (e.g. interfaces); `Classification.UNKNOWN` means "looked up, but fits no class".
+- `owner` is a frozen `Owner` dataclass (`org`, `asn`, `country`), not a string, so the M6 baseline can compare ASNs without parsing. `asn` is an `int` (64496, not "AS64496"); `country` is a two-letter code.
 
 ## Open questions
 
@@ -93,3 +97,4 @@ Concepts I learned and want to share about.
 - How Typer turns a function signature into a CLI: type hints become options, the docstring becomes the help text. Callback vs. command, and why `--version` has to be an "eager" option.
 - Linter vs. formatter, and why ruff does both. How pytest discovers tests, and how `CliRunner` tests a CLI without starting a real process. Dev dependencies vs. runtime dependencies.
 - What continuous integration is and why to add it while the test suite is tiny. Anatomy of a GitHub Actions workflow: trigger, job, matrix, steps. Why CI uses `uv sync --locked` and `ruff format --check` (report, never modify), and why actions are pinned to a commit SHA.
+- Data contracts: why every check returns one shared shape, so the verdict and report never depend on how a check works. Dataclasses (`frozen=True`, defaults, free `==`, `asdict()`), and `StrEnum` vs. plain strings for a fixed set of values.
