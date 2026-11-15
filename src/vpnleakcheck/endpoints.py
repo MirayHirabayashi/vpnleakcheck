@@ -1,0 +1,36 @@
+"""Every external service vpnleakcheck talks to, in one place.
+
+Checks import their endpoints from here and never hard-code a URL, so this
+file is the complete answer to "who does this tool contact?".
+
+Before adding a service, confirm it is free, needs no API key, and allows
+automated use. Record where and when you checked in a comment.
+"""
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Endpoint:
+    """One external service: a short name for reports, and the URL to call."""
+
+    name: str
+    url: str
+
+
+# "What is my IP" services that answer over IPv4 only: their hostnames have an
+# A record and no AAAA record, so the request cannot leave over IPv6. Each one
+# replies with the caller's address as plain text. Some services of this kind
+# add a trailing newline, so always strip the body before using it.
+#
+# The two are run by different operators on different networks, so a single
+# outage cannot take out both.
+IPV4_ENDPOINTS: tuple[Endpoint, ...] = (
+    # Verified 2026-11-15, https://www.ipify.org: free, no key, "use it
+    # without limit". Served through Cloudflare.
+    Endpoint(name="ipify", url="https://api.ipify.org"),
+    # Verified 2026-11-15, https://api.ident.me: free, no key, "use this
+    # service for anything"; email first above 500 requests per second.
+    # Hosted at Hetzner and run by one person, so expect occasional downtime.
+    Endpoint(name="ident.me", url="https://4.ident.me"),
+)
