@@ -3,7 +3,7 @@
 Updated at the end of every step. A new session starts by reading this file.
 
 **Current milestone:** M2 IP checks
-**Current step:** M2.4 (not started)
+**Current step:** M2.5 (not started)
 
 ## Milestones
 
@@ -19,7 +19,7 @@ Each milestone is split into small steps. One step = one small change I can read
 - [x] M2.1 Shared result object (name, status, value, owner, classification, reason)
 - [x] M2.2 Endpoint config file; pick and verify two free, no-key IPv4 services
 - [x] M2.3 IPv4 lookup from two services + disagreement warning, with respx tests
-- [ ] M2.4 IPv6-only lookup; timeout = "no IPv6 route"; ignore `fe80::`
+- [x] M2.4 IPv6-only lookup; timeout = "no IPv6 route"; ignore `fe80::`
 - [ ] M2.5 Captive-portal detection (response isn't an IP)
 
 ### M3 Ownership
@@ -84,6 +84,11 @@ Record each choice and why, one line each, so later sessions don't reopen them.
 - IPv4 check returns one `CheckResult` named `ipv4` (matches the spec JSON). Majority wins. On a tie, the service listed first in `endpoints.py` wins (`Counter.most_common` keeps first-seen order). One service answering is still `ok`, and the reason names the silent one. None answering is `unavailable`.
 - A non-IPv4 body (login page, empty, an IPv6 address) counts as "no answer" from that service for now. M2.5 will turn it into a captive-portal signal.
 - httpx is a runtime dependency (added in M2.3), respx a dev dependency.
+- IPv6 services (M2.4): `api6.ipify.org` and `6.ident.me`, verified 2026-11-17 as AAAA-only (no A record), so the request can only leave over IPv6. Same operators and terms as the IPv4 pair. Both are asked at once: for IPv6 a failure reads as "safe", so one service's outage must not be able to fake "no IPv6 route".
+- IPv6 "no route" means connection-level failure only (`httpx.ConnectError`, `httpx.ConnectTimeout`) from every service: `ok`, `value=None`. If any service was reached over IPv6 but gave no usable address (4xx/5xx, read timeout, non-IPv6 body), a route exists, so the check is `unavailable`, not safe. Known gap: httpx reports a failed TLS handshake as `ConnectError`, so it counts as no route.
+- An IPv6 answer counts only if `ipaddress` says `is_global`: link-local `fe80::`, unique-local `fc00::/7`, loopback and documentation `2001:db8::` are rejected as bad answers. Test fixtures therefore use a made-up global address, not `2001:db8::`.
+- A found IPv6 address is `ok` with the address as `value`, like IPv4. Whether it leaks depends on its owner (VPN-tunnelled IPv6 exists), so M3 ownership and M5 verdict decide, not the check.
+- IPv4 and IPv6 share one `_compare` helper (majority wins, `warning` on disagreement), so both behave the same. IPv6 tests live in their own file, `tests/test_public_ipv6.py`. Endpoint rule tests now run over every endpoint list, and no host may appear in two lists.
 - Endpoint override: ship built-in defaults only for now. An optional override file in `~/.config/vpnleakcheck/` gets added in a later step, once the checks that read the endpoints exist. Until then the spec's "make the endpoints configurable" is not met.
 
 ## Open questions
@@ -110,3 +115,4 @@ Concepts I learned and want to share about.
 - Data contracts: why every check returns one shared shape, so the verdict and report never depend on how a check works. Dataclasses (`frozen=True`, defaults, free `==`, `asdict()`), and `StrEnum` vs. plain strings for a fixed set of values.
 - Why your computer can't know its own public IP (NAT and VPNs rewrite it on the way out), so you have to ask a server. How to vet a free API before depending on it: terms, key, rate limit, who hosts it. Two services on the same network (both behind Cloudflare) aren't really independent. A records vs. AAAA records, and how a hostname with no AAAA record forces IPv4.
 - async/await in Python: what an event loop is, why `asyncio.gather` makes two 5-second requests take 5 seconds instead of 10, and why I/O-bound work like HTTP calls suits async. Designing for failure: most of a network check is deciding what each failure (timeout, 5xx, garbage body) means. Mocking HTTP with respx so tests cover every failure without the network.
+- IPv6 leaks: why a VPN that only tunnels IPv4 leaks on dual-stack Wi-Fi, and how an AAAA-only hostname tests the IPv6 path on its own. When failure is the safe outcome, you need two services and must tell "never connected" (no route) apart from "connected, bad answer" (route exists). Link-local `fe80::` vs. global addresses, and `ipaddress.is_global`.

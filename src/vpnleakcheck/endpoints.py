@@ -34,3 +34,14 @@ IPV4_ENDPOINTS: tuple[Endpoint, ...] = (
     # Hosted at Hetzner and run by one person, so expect occasional downtime.
     Endpoint(name="ident.me", url="https://4.ident.me"),
 )
+
+# The IPv6-only siblings of the services above: AAAA record, no A record, so
+# the request can only leave over IPv6. If this machine has no IPv6 route to
+# the internet, the connection fails, and for this check that is the good
+# outcome. Same operators and terms as above.
+IPV6_ENDPOINTS: tuple[Endpoint, ...] = (
+    # Verified 2026-11-17: AAAA only (2607:f2d8:1:3c::4), no A record.
+    Endpoint(name="ipify", url="https://api6.ipify.org"),
+    # Verified 2026-11-17: AAAA only (2a01:4f9:c012:8091::1), no A record.
+    Endpoint(name="ident.me", url="https://6.ident.me"),
+)
