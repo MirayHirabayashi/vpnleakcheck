@@ -3,7 +3,7 @@
 Updated at the end of every step. A new session starts by reading this file.
 
 **Current milestone:** M2 IP checks
-**Current step:** M2.3 (not started)
+**Current step:** M2.4 (not started)
 
 ## Milestones
 
@@ -18,7 +18,7 @@ Each milestone is split into small steps. One step = one small change I can read
 ### M2 IP checks
 - [x] M2.1 Shared result object (name, status, value, owner, classification, reason)
 - [x] M2.2 Endpoint config file; pick and verify two free, no-key IPv4 services
-- [ ] M2.3 IPv4 lookup from two services + disagreement warning, with respx tests
+- [x] M2.3 IPv4 lookup from two services + disagreement warning, with respx tests
 - [ ] M2.4 IPv6-only lookup; timeout = "no IPv6 route"; ignore `fe80::`
 - [ ] M2.5 Captive-portal detection (response isn't an IP)
 
@@ -78,6 +78,12 @@ Record each choice and why, one line each, so later sessions don't reopen them.
 - IPv4 services: ipify (`https://api.ipify.org`) and ident.me (`https://4.ident.me`), verified 2026-11-15. Both are free, need no key, and state in writing that any use is allowed (ident.me asks for an email above 500 requests/s). Both hostnames have no AAAA record, so the request can only leave over IPv4, and both have IPv6-only siblings (`api6.ipify.org`, `6.ident.me`) for M2.4.
 - Rejected icanhazip as the second service: it and ipify both sit behind Cloudflare (AS13335), so they aren't independent. ident.me is on Hetzner. Rejected `checkip.amazonaws.com`: no published terms and no IPv6-only sibling. Either can be a fallback if ident.me (run by one person) proves unreliable.
 - Responses are bare `text/plain` addresses, but some services add a trailing newline, so M2.3 must strip the body before parsing.
+- Concurrency: async httpx (`httpx.AsyncClient` + `asyncio.gather`), chosen in M2.3 over threads or sequential calls. Every request in a run happens at once, so the run takes as long as the slowest request (about 5 s at worst), not the sum, which keeps the 10-second goal. The CLI will wrap the checks in `asyncio.run()`. Tests call `asyncio.run()` too, so no pytest-asyncio dependency.
+- Checks take an `httpx.AsyncClient` from the caller instead of creating their own, so one client (one timeout, one connection pool) is shared by every check in a run.
+- Added `Status.WARNING` (M2.3): the check ran but its sources conflict. Used when IPv4 services disagree, so the verdict can see "signals conflict" from the status alone without parsing `reason`.
+- IPv4 check returns one `CheckResult` named `ipv4` (matches the spec JSON). Majority wins. On a tie, the service listed first in `endpoints.py` wins (`Counter.most_common` keeps first-seen order). One service answering is still `ok`, and the reason names the silent one. None answering is `unavailable`.
+- A non-IPv4 body (login page, empty, an IPv6 address) counts as "no answer" from that service for now. M2.5 will turn it into a captive-portal signal.
+- httpx is a runtime dependency (added in M2.3), respx a dev dependency.
 - Endpoint override: ship built-in defaults only for now. An optional override file in `~/.config/vpnleakcheck/` gets added in a later step, once the checks that read the endpoints exist. Until then the spec's "make the endpoints configurable" is not met.
 
 ## Open questions
@@ -89,7 +95,6 @@ Resolve each one before (or during) the step in brackets.
 - [M5.1] Verdict rules: which verdict wins when several rows match? What number counts as "too many checks unavailable"? How to handle a VPN on the router (no local VPN interface but the IPv4 is VPN-owned), which the current rules call NOT PROTECTED?
 - [M4.3] Linux VPN interface names don't always fit `wg*`/`tun*` (e.g. `nordlynx`, `wg0-mullvad`, custom WireGuard names). How much weight do interface names get vs. IPv4 ownership?
 - [M2.5] Behind a captive portal, HTTPS IP APIs usually fail with a TLS error or redirect instead of returning a login page. Treat those as captive-portal signals? Add a dedicated probe (e.g. `captive.apple.com`, would need vetting)?
-- [M2] 10-second goal vs. 5 s per-request timeout: checks must run concurrently. Async httpx or threads?
 - [M3.3] `known_providers.json` ships inside the installed package, so users can't edit it after `pipx install`. Ship defaults plus an optional override in the user config directory, as decided for endpoints? Also pick the step that builds both overrides.
 - [M5.4] Confirm my VPN lets me turn DNS protection off, for the manual test matrix.
 - [M7.3] README "Limitations" section: ownership lookups send your IP to a third party; browser DNS-over-HTTPS and WebRTC are invisible to a CLI.
@@ -104,3 +109,4 @@ Concepts I learned and want to share about.
 - What continuous integration is and why to add it while the test suite is tiny. Anatomy of a GitHub Actions workflow: trigger, job, matrix, steps. Why CI uses `uv sync --locked` and `ruff format --check` (report, never modify), and why actions are pinned to a commit SHA.
 - Data contracts: why every check returns one shared shape, so the verdict and report never depend on how a check works. Dataclasses (`frozen=True`, defaults, free `==`, `asdict()`), and `StrEnum` vs. plain strings for a fixed set of values.
 - Why your computer can't know its own public IP (NAT and VPNs rewrite it on the way out), so you have to ask a server. How to vet a free API before depending on it: terms, key, rate limit, who hosts it. Two services on the same network (both behind Cloudflare) aren't really independent. A records vs. AAAA records, and how a hostname with no AAAA record forces IPv4.
+- async/await in Python: what an event loop is, why `asyncio.gather` makes two 5-second requests take 5 seconds instead of 10, and why I/O-bound work like HTTP calls suits async. Designing for failure: most of a network check is deciding what each failure (timeout, 5xx, garbage body) means. Mocking HTTP with respx so tests cover every failure without the network.

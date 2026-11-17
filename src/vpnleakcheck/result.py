@@ -13,6 +13,7 @@ class Status(StrEnum):
 
     OK = "ok"
     LEAK = "leak"
+    WARNING = "warning"  # the check ran, but its sources gave conflicting answers
     UNAVAILABLE = "unavailable"  # the check could not run (e.g. request failed)
 
 
