@@ -45,3 +45,22 @@ IPV6_ENDPOINTS: tuple[Endpoint, ...] = (
     # Verified 2026-11-17: AAAA only (2a01:4f9:c012:8091::1), no A record.
     Endpoint(name="ident.me", url="https://6.ident.me"),
 )
+
+# Captive-portal probe. With no portal it answers an empty 204. A portal
+# (hotel or airport login page) intercepts the request and answers with a
+# redirect, a 511, or its own page instead.
+#
+# Plain HTTP on purpose, the only endpoint here that is: a portal can rewrite
+# an HTTP request and show itself, but it can only break an HTTPS one, which
+# tells us nothing. The request carries no data, so there is nothing to read.
+#
+# Verified 2026-11-19: Firefox's current `captivedetect.canonicalURL`, per
+# https://firefox-source-docs.mozilla.org/networking/captive_portals.html.
+# Domain registered to Mozilla Corporation, served by Fastly, A and AAAA
+# records. No key; no published terms for other clients, but it is openly
+# documented and every Firefox install calls it. The older
+# detectportal.firefox.com/success.txt still answers but is no longer the
+# documented default, so it isn't used.
+CAPTIVE_PORTAL_ENDPOINT = Endpoint(
+    name="firefox", url="http://firefox-portal-detection.com/generate_204"
+)

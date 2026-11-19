@@ -9,7 +9,12 @@ from urllib.parse import urlsplit
 
 import pytest
 
-from vpnleakcheck.endpoints import IPV4_ENDPOINTS, IPV6_ENDPOINTS, Endpoint
+from vpnleakcheck.endpoints import (
+    CAPTIVE_PORTAL_ENDPOINT,
+    IPV4_ENDPOINTS,
+    IPV6_ENDPOINTS,
+    Endpoint,
+)
 
 # Every list of services, so each rule below is checked against all of them.
 ENDPOINT_LISTS = {"ipv4": IPV4_ENDPOINTS, "ipv6": IPV6_ENDPOINTS}
@@ -41,7 +46,9 @@ def test_endpoints_use_different_hosts() -> None:
     # Two entries pointing at one host would not be independent services, and
     # an IPv4 and an IPv6 entry must never share a host (one host can't be
     # both IPv4-only and IPv6-only).
-    hosts = [urlsplit(endpoint.url).hostname for endpoint in ALL_ENDPOINTS]
+    # The portal probe is included: it must not share a host with an IP service.
+    every = [*ALL_ENDPOINTS, CAPTIVE_PORTAL_ENDPOINT]
+    hosts = [urlsplit(endpoint.url).hostname for endpoint in every]
 
     assert len(hosts) == len(set(hosts))
 
@@ -52,4 +59,13 @@ def test_endpoint_uses_https(endpoint: Endpoint) -> None:
     parts = urlsplit(endpoint.url)
 
     assert parts.scheme == "https"
+    assert parts.hostname
+
+
+def test_captive_portal_probe_uses_plain_http() -> None:
+    # The one exception to the HTTPS rule: a portal can only show itself by
+    # rewriting a request it can read. Over HTTPS the probe would just fail.
+    parts = urlsplit(CAPTIVE_PORTAL_ENDPOINT.url)
+
+    assert parts.scheme == "http"
     assert parts.hostname

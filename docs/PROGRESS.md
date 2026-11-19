@@ -2,8 +2,8 @@
 
 Updated at the end of every step. A new session starts by reading this file.
 
-**Current milestone:** M2 IP checks
-**Current step:** M2.5 (not started)
+**Current milestone:** M3 Ownership
+**Current step:** M3.1 (not started)
 
 ## Milestones
 
@@ -20,7 +20,7 @@ Each milestone is split into small steps. One step = one small change I can read
 - [x] M2.2 Endpoint config file; pick and verify two free, no-key IPv4 services
 - [x] M2.3 IPv4 lookup from two services + disagreement warning, with respx tests
 - [x] M2.4 IPv6-only lookup; timeout = "no IPv6 route"; ignore `fe80::`
-- [ ] M2.5 Captive-portal detection (response isn't an IP)
+- [x] M2.5 Captive-portal detection (dedicated plain-HTTP probe, not the IP services' bodies)
 
 ### M3 Ownership
 - [ ] M3.1 Pick and verify an ownership API (ASN, org, country)
@@ -89,6 +89,12 @@ Record each choice and why, one line each, so later sessions don't reopen them.
 - An IPv6 answer counts only if `ipaddress` says `is_global`: link-local `fe80::`, unique-local `fc00::/7`, loopback and documentation `2001:db8::` are rejected as bad answers. Test fixtures therefore use a made-up global address, not `2001:db8::`.
 - A found IPv6 address is `ok` with the address as `value`, like IPv4. Whether it leaks depends on its owner (VPN-tunnelled IPv6 exists), so M3 ownership and M5 verdict decide, not the check.
 - IPv4 and IPv6 share one `_compare` helper (majority wins, `warning` on disagreement), so both behave the same. IPv6 tests live in their own file, `tests/test_public_ipv6.py`. Endpoint rule tests now run over every endpoint list, and no host may appear in two lists.
+- Captive portals (M2.5): a dedicated probe, not the IP services. Behind a portal our HTTPS IP services fail with TLS errors or timeouts instead of returning a login page, so "non-IP body" almost never fires. Rejected: reading IP-service bodies only (misses the common case) and treating TLS errors as a portal (corporate HTTPS inspection and antivirus break TLS too).
+- Probe: Firefox's `http://firefox-portal-detection.com/generate_204` (Mozilla Corporation, Fastly, A + AAAA), verified 2026-11-19 against the Firefox source docs. Chosen over Apple's and Google's probes because Mozilla documents it openly; no published terms for other clients, accepted since every Firefox install calls it. The older `detectportal.firefox.com/success.txt` still answers but is no longer the documented default.
+- The probe is the only plain-HTTP endpoint, on purpose: a portal can only show itself by rewriting a request it can read. The HTTPS endpoint test excludes it, and a separate test pins it to `http`.
+- Portal rules copy Firefox's: empty 200/204 = `ok`; 3xx, 511 or any other 2xx = portal; connection errors and other 4xx/5xx = `unavailable` (not proof of a portal). Redirects are never followed (`follow_redirects=False` on the request), and the `Location` header becomes `value`, so the report can show the login page.
+- A portal is `Status.WARNING` (widened to "the check ran and found something the user must act on that isn't a leak"), not `LEAK` and not a new status. Lives in its own module `checks/captive_portal.py` as a `CheckResult` named `captive_portal`.
+- Behind a portal, the IPv6 check's TLS-as-no-route gap (M2.4) can fake "no IPv6 route". M5.1 verdict must not call IPv6 safe while `captive_portal` is `warning`; the IP checks themselves are unchanged.
 - Endpoint override: ship built-in defaults only for now. An optional override file in `~/.config/vpnleakcheck/` gets added in a later step, once the checks that read the endpoints exist. Until then the spec's "make the endpoints configurable" is not met.
 
 ## Open questions
@@ -97,9 +103,8 @@ Resolve each one before (or during) the step in brackets.
 
 - [M5.3] Exit code clash: Typer/Click exits with 2 on usage errors, but the spec uses 2 for UNCERTAIN and 3 for usage errors. Remap Typer's usage errors to 3, or change the table?
 - [M3.3 / M5.1] Public DNS resolvers (1.1.1.1, 8.8.8.8, Quad9) used outside the tunnel would classify as "hosting" and hide a DNS leak. Add a separate `public-dns` class that doesn't count as VPN?
-- [M5.1] Verdict rules: which verdict wins when several rows match? What number counts as "too many checks unavailable"? How to handle a VPN on the router (no local VPN interface but the IPv4 is VPN-owned), which the current rules call NOT PROTECTED?
+- [M5.1] Verdict rules: which verdict wins (and a detected captive portal should override everything with "log in first") when several rows match? What number counts as "too many checks unavailable"? How to handle a VPN on the router (no local VPN interface but the IPv4 is VPN-owned), which the current rules call NOT PROTECTED?
 - [M4.3] Linux VPN interface names don't always fit `wg*`/`tun*` (e.g. `nordlynx`, `wg0-mullvad`, custom WireGuard names). How much weight do interface names get vs. IPv4 ownership?
-- [M2.5] Behind a captive portal, HTTPS IP APIs usually fail with a TLS error or redirect instead of returning a login page. Treat those as captive-portal signals? Add a dedicated probe (e.g. `captive.apple.com`, would need vetting)?
 - [M3.3] `known_providers.json` ships inside the installed package, so users can't edit it after `pipx install`. Ship defaults plus an optional override in the user config directory, as decided for endpoints? Also pick the step that builds both overrides.
 - [M5.4] Confirm my VPN lets me turn DNS protection off, for the manual test matrix.
 - [M7.3] README "Limitations" section: ownership lookups send your IP to a third party; browser DNS-over-HTTPS and WebRTC are invisible to a CLI.
@@ -116,3 +121,4 @@ Concepts I learned and want to share about.
 - Why your computer can't know its own public IP (NAT and VPNs rewrite it on the way out), so you have to ask a server. How to vet a free API before depending on it: terms, key, rate limit, who hosts it. Two services on the same network (both behind Cloudflare) aren't really independent. A records vs. AAAA records, and how a hostname with no AAAA record forces IPv4.
 - async/await in Python: what an event loop is, why `asyncio.gather` makes two 5-second requests take 5 seconds instead of 10, and why I/O-bound work like HTTP calls suits async. Designing for failure: most of a network check is deciding what each failure (timeout, 5xx, garbage body) means. Mocking HTTP with respx so tests cover every failure without the network.
 - IPv6 leaks: why a VPN that only tunnels IPv4 leaks on dual-stack Wi-Fi, and how an AAAA-only hostname tests the IPv6 path on its own. When failure is the safe outcome, you need two services and must tell "never connected" (no route) apart from "connected, bad answer" (route exists). Link-local `fe80::` vs. global addresses, and `ipaddress.is_global`.
+- Captive portals: how hotel Wi-Fi hijacks DNS or redirects HTTP until you log in, why an HTTPS request can only fail behind a portal while plain HTTP lets the portal show itself, and how OSes and browsers detect portals with a "known answer" probe (an empty 204). HTTP 511 Network Authentication Required. Why a probe must never follow redirects.

@@ -13,7 +13,9 @@ class Status(StrEnum):
 
     OK = "ok"
     LEAK = "leak"
-    WARNING = "warning"  # the check ran, but its sources gave conflicting answers
+    # The check ran and found something the user must act on that isn't a leak:
+    # its sources gave conflicting answers, or a captive portal is in the way.
+    WARNING = "warning"
     UNAVAILABLE = "unavailable"  # the check could not run (e.g. request failed)
 
 
