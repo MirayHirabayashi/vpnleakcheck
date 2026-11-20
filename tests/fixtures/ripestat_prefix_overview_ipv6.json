@@ -1,0 +1,46 @@
+{
+  "messages": [
+    [
+      "info",
+      "1 routes were filtered due to low visibility (min peers:10)."
+    ],
+    [
+      "warning",
+      "Given resource is not announced but result has been aligned to first-level less-specific (2001:4860::/32)."
+    ]
+  ],
+  "see_also": [],
+  "version": "1.3",
+  "data_call_name": "prefix-overview",
+  "data_call_status": "supported",
+  "cached": false,
+  "query_id": "20261120021608-af944df1-b643-42e1-974c-d2e967d1ea05",
+  "process_time": 103,
+  "server_id": "app193",
+  "build_version": "v0.12.3-2-2026.11.16",
+  "pipeline": "1517264",
+  "status": "ok",
+  "status_code": 200,
+  "time": "2026-11-20T02:16:09.092230",
+  "data": {
+    "is_less_specific": true,
+    "announced": true,
+    "asns": [
+      {
+        "asn": 15169,
+        "holder": "GOOGLE - Google LLC"
+      }
+    ],
+    "related_prefixes": [],
+    "resource": "2001:4860::/32",
+    "type": "prefix",
+    "block": {
+      "resource": "2001:4800::/23",
+      "desc": "Designated to ARIN on 24 August 2004 (Status: allocated; Note: n.a.)",
+      "name": "IANA IPv6 Global Unicast Address Assignments"
+    },
+    "actual_num_related": 0,
+    "query_time": "2026-11-19T16:00:00",
+    "num_filtered_out": 1
+  }
+}

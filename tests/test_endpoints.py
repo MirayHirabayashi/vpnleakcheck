@@ -4,6 +4,7 @@ These check the rules every endpoint must follow. They read the config only
 and never contact the services.
 """
 
+import re
 from dataclasses import FrozenInstanceError
 from urllib.parse import urlsplit
 
@@ -13,12 +14,18 @@ from vpnleakcheck.endpoints import (
     CAPTIVE_PORTAL_ENDPOINT,
     IPV4_ENDPOINTS,
     IPV6_ENDPOINTS,
+    OWNERSHIP_ASN_ENDPOINT,
+    OWNERSHIP_COUNTRY_ENDPOINT,
+    RIPESTAT_SOURCEAPP,
     Endpoint,
 )
 
 # Every list of services, so each rule below is checked against all of them.
 ENDPOINT_LISTS = {"ipv4": IPV4_ENDPOINTS, "ipv6": IPV6_ENDPOINTS}
 ALL_ENDPOINTS = [e for endpoints in ENDPOINT_LISTS.values() for e in endpoints]
+# Both ownership lookups are calls to one service (RIPEstat), so they share a
+# host on purpose and are kept out of the "different hosts" rule.
+OWNERSHIP_ENDPOINTS = [OWNERSHIP_ASN_ENDPOINT, OWNERSHIP_COUNTRY_ENDPOINT]
 
 
 def test_endpoint_is_immutable() -> None:
@@ -53,7 +60,9 @@ def test_endpoints_use_different_hosts() -> None:
     assert len(hosts) == len(set(hosts))
 
 
-@pytest.mark.parametrize("endpoint", ALL_ENDPOINTS, ids=lambda e: e.url)
+@pytest.mark.parametrize(
+    "endpoint", [*ALL_ENDPOINTS, *OWNERSHIP_ENDPOINTS], ids=lambda e: e.url
+)
 def test_endpoint_uses_https(endpoint: Endpoint) -> None:
     # Plain HTTP would let anyone on the Wi-Fi read or change the answer.
     parts = urlsplit(endpoint.url)
@@ -69,3 +78,25 @@ def test_captive_portal_probe_uses_plain_http() -> None:
 
     assert parts.scheme == "http"
     assert parts.hostname
+
+
+def test_ownership_service_is_not_an_ip_service() -> None:
+    # The ownership service must be run apart from the "what is my IP"
+    # services, so one operator never both reports our IP and judges it.
+    ip_hosts = {urlsplit(e.url).hostname for e in ALL_ENDPOINTS}
+    ip_hosts.add(urlsplit(CAPTIVE_PORTAL_ENDPOINT.url).hostname)
+
+    for endpoint in OWNERSHIP_ENDPOINTS:
+        assert urlsplit(endpoint.url).hostname not in ip_hosts
+
+
+@pytest.mark.parametrize("endpoint", OWNERSHIP_ENDPOINTS, ids=lambda e: e.url)
+def test_ownership_url_has_no_query(endpoint: Endpoint) -> None:
+    # The check adds `resource` and `sourceapp` itself; a query baked into
+    # the URL could clash with them.
+    assert urlsplit(endpoint.url).query == ""
+
+
+def test_ripestat_sourceapp_format() -> None:
+    # RIPEstat's rule: letters, digits, hyphens and underscores, no spaces.
+    assert re.fullmatch(r"[A-Za-z0-9_-]+", RIPESTAT_SOURCEAPP)

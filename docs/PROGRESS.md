@@ -3,7 +3,7 @@
 Updated at the end of every step. A new session starts by reading this file.
 
 **Current milestone:** M3 Ownership
-**Current step:** M3.1 (not started)
+**Current step:** M3.2 (not started)
 
 ## Milestones
 
@@ -23,7 +23,7 @@ Each milestone is split into small steps. One step = one small change I can read
 - [x] M2.5 Captive-portal detection (dedicated plain-HTTP probe, not the IP services' bodies)
 
 ### M3 Ownership
-- [ ] M3.1 Pick and verify an ownership API (ASN, org, country)
+- [x] M3.1 Pick and verify an ownership API (ASN, org, country)
 - [ ] M3.2 Ownership lookup with mocked tests
 - [ ] M3.3 `data/known_providers.json` + keyword classification rules
 
@@ -96,6 +96,12 @@ Record each choice and why, one line each, so later sessions don't reopen them.
 - A portal is `Status.WARNING` (widened to "the check ran and found something the user must act on that isn't a leak"), not `LEAK` and not a new status. Lives in its own module `checks/captive_portal.py` as a `CheckResult` named `captive_portal`.
 - Behind a portal, the IPv6 check's TLS-as-no-route gap (M2.4) can fake "no IPv6 route". M5.1 verdict must not call IPv6 safe while `captive_portal` is `warning`; the IP checks themselves are unchanged.
 - Endpoint override: ship built-in defaults only for now. An optional override file in `~/.config/vpnleakcheck/` gets added in a later step, once the checks that read the endpoints exist. Until then the spec's "make the endpoints configurable" is not met.
+- Ownership API (M3.1): RIPEstat (RIPE NCC, non-profit), verified 2026-11-19. Free, no key, no paid tier, IPv4 + IPv6, global coverage, no request cap (register above ~1000/day, max 8 parallel per IP). Two calls per IP, run in parallel: `prefix-overview` (ASN + holder) and `maxmind-geo-lite` (country where the IP is used). Both send `sourceapp=vpnleakcheck` (`RIPESTAT_SOURCEAPP`); the check adds `resource` and `sourceapp` as params, URLs carry no query.
+- RIPEstat terms Art. 3.3: commercial use (paid services/products) needs written permission from stat@ripe.net, and the data may not be redistributed. Fine for a free tool doing live lookups of the user's own IP; revisit before selling anything built on it.
+- Rejected for ownership: ip-api.com (free tier is plain HTTP only, so the untrusted network could read or rewrite the answer; non-commercial only), Team Cymru DNS (query goes through the suspect resolver, portals hijack DNS, country is registry data not location), ipinfo without a token (legacy API "may be discontinued"), ipapi.co (rate-limited on first call), iptoasn.com (no response). ipwho.is (1000/day, no SLA, one call, commercial OK) is the fallback if RIPEstat proves unreliable.
+- RIPEstat response shapes M3.2 must handle (fixtures `tests/fixtures/ripestat_*.json`): `data.asns` is a list (can be empty with `announced: false`, or hold several ASNs); `holder` reads `"SHORTNAME - Full Name"`; an unknown country is an empty `located_resources`, not an error; a 200 still needs `status == "ok"` checked.
+- Ownership endpoints share one host (`stat.ripe.net`) on purpose, so they're outside the "different hosts" test; a separate test keeps that host apart from every IP service and the portal probe.
+- `watch` (M7.2) must cache owners by IP (an IP's owner doesn't change in 30 s) to stay within RIPEstat's fair-use guidance.
 
 ## Open questions
 
@@ -122,3 +128,4 @@ Concepts I learned and want to share about.
 - async/await in Python: what an event loop is, why `asyncio.gather` makes two 5-second requests take 5 seconds instead of 10, and why I/O-bound work like HTTP calls suits async. Designing for failure: most of a network check is deciding what each failure (timeout, 5xx, garbage body) means. Mocking HTTP with respx so tests cover every failure without the network.
 - IPv6 leaks: why a VPN that only tunnels IPv4 leaks on dual-stack Wi-Fi, and how an AAAA-only hostname tests the IPv6 path on its own. When failure is the safe outcome, you need two services and must tell "never connected" (no route) apart from "connected, bad answer" (route exists). Link-local `fe80::` vs. global addresses, and `ipaddress.is_global`.
 - Captive portals: how hotel Wi-Fi hijacks DNS or redirects HTTP until you log in, why an HTTPS request can only fail behind a portal while plain HTTP lets the portal show itself, and how OSes and browsers detect portals with a "known answer" probe (an empty 204). HTTP 511 Network Authentication Required. Why a probe must never follow redirects.
+- Who owns an IP: ASNs, BGP announcements, and the regional registries (ARIN, RIPE, ...). Registry country vs. geolocation country. Why a security tool must never look up ownership over plain HTTP on an untrusted network (the network can rewrite "ISP" into "hosting"). Reading an API's terms: "free" vs. "free for non-commercial use" vs. "no redistribution".

@@ -46,6 +46,36 @@ IPV6_ENDPOINTS: tuple[Endpoint, ...] = (
     Endpoint(name="ident.me", url="https://6.ident.me"),
 )
 
+# IP ownership: who announces an address on the internet (ASN and holder) and
+# where it is used (country). Both come from RIPEstat, run by the RIPE NCC, a
+# non-profit registry. Its routing data covers the whole internet, not only
+# RIPE's own region (Europe and the Middle East).
+#
+# Verified 2026-11-19, https://stat.ripe.net/docs/data_api and the terms at
+# https://www.ripe.net/about-us/legal/ripestat-service-terms-and-conditions/:
+# free, no key, IPv4 and IPv6. No request cap, but register above about 1000
+# requests a day and send at most 8 at once from one IP. Clients should name
+# themselves with `sourceapp`.
+# Terms, Art. 3.3: commercial use (paid services or products) needs written
+# permission from stat@ripe.net, and the data may not be redistributed. A free
+# tool that looks up the user's own IP live is fine; selling it is not.
+#
+# Neither URL carries a query string. The check adds `resource=<ip>` and
+# `sourceapp=RIPESTAT_SOURCEAPP` as request parameters.
+RIPESTAT_SOURCEAPP = "vpnleakcheck"
+
+# ASN and holder (organisation) of the routed block containing the address.
+OWNERSHIP_ASN_ENDPOINT = Endpoint(
+    name="ripestat",
+    url="https://stat.ripe.net/data/prefix-overview/data.json",
+)
+# Country where the address is used (MaxMind GeoLite data), not just where
+# the block was registered.
+OWNERSHIP_COUNTRY_ENDPOINT = Endpoint(
+    name="ripestat",
+    url="https://stat.ripe.net/data/maxmind-geo-lite/data.json",
+)
+
 # Captive-portal probe. With no portal it answers an empty 204. A portal
 # (hotel or airport login page) intercepts the request and answers with a
 # redirect, a 511, or its own page instead.
