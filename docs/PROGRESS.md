@@ -3,7 +3,7 @@
 Updated at the end of every step. A new session starts by reading this file.
 
 **Current milestone:** M3 Ownership
-**Current step:** M3.2 (not started)
+**Current step:** M3.3 (not started)
 
 ## Milestones
 
@@ -24,7 +24,7 @@ Each milestone is split into small steps. One step = one small change I can read
 
 ### M3 Ownership
 - [x] M3.1 Pick and verify an ownership API (ASN, org, country)
-- [ ] M3.2 Ownership lookup with mocked tests
+- [x] M3.2 Ownership lookup with mocked tests
 - [ ] M3.3 `data/known_providers.json` + keyword classification rules
 
 ### M4 DNS and interfaces
@@ -101,6 +101,12 @@ Record each choice and why, one line each, so later sessions don't reopen them.
 - Rejected for ownership: ip-api.com (free tier is plain HTTP only, so the untrusted network could read or rewrite the answer; non-commercial only), Team Cymru DNS (query goes through the suspect resolver, portals hijack DNS, country is registry data not location), ipinfo without a token (legacy API "may be discontinued"), ipapi.co (rate-limited on first call), iptoasn.com (no response). ipwho.is (1000/day, no SLA, one call, commercial OK) is the fallback if RIPEstat proves unreliable.
 - RIPEstat response shapes M3.2 must handle (fixtures `tests/fixtures/ripestat_*.json`): `data.asns` is a list (can be empty with `announced: false`, or hold several ASNs); `holder` reads `"SHORTNAME - Full Name"`; an unknown country is an empty `located_resources`, not an error; a 200 still needs `status == "ok"` checked.
 - Ownership endpoints share one host (`stat.ripe.net`) on purpose, so they're outside the "different hosts" test; a separate test keeps that host apart from every IP service and the portal probe.
+- Ownership (M3.2) is a helper, not a check: `lookup_owner(client, ip) -> Owner | None` in `checks/ownership.py`. The spec JSON has no separate ownership entry, so a later step puts the `Owner` on the ipv4/ipv6/dns results (`dataclasses.replace`). Rejected: a separate `CheckResult` per owner (duplicates the IP, doesn't match the spec JSON).
+- `Owner.org` stores RIPEstat's holder raw. Its format differs by registry (`"CLOUDFLARENET - Cloudflare, Inc."` from ARIN, `"HETZNER-AS Hetzner Online GmbH"` and `"M247 M247 Europe SRL"` from RIPE), so no cleaning heuristic is safe; M3.3 keywords can match the handle too, and M5.2 may tidy it for display only.
+- Partial answers are kept (only the ASN call worked → `country=None`, and the reverse); `None` only when nothing was learned. Several ASNs → first listed wins. Any HTTP error, non-JSON body, RIPEstat `status` other than `"ok"`, or unexpected shape drops that half of the answer.
+- Unknown country arrives three ways: empty `located_resources`, a missing key, or `"country": "?"` (real, for anycast addresses like 1.1.1.1). Only `^[A-Z]{2}$` is accepted.
+- `lookup_owner` never sends a non-global address (private, CGNAT `100.64/10`, loopback, link-local, unique-local, documentation): it means nothing on the internet and would leak local network details. Tests therefore use 8.8.8.8 / `2001:4860:4860::8888`, not the documentation ranges.
+- `lookup_owner` takes no `endpoints` argument (unlike the IP checks): the parsing is RIPEstat-specific, so swapping the URL for another service couldn't work anyway.
 - `watch` (M7.2) must cache owners by IP (an IP's owner doesn't change in 30 s) to stay within RIPEstat's fair-use guidance.
 
 ## Open questions
@@ -129,3 +135,4 @@ Concepts I learned and want to share about.
 - IPv6 leaks: why a VPN that only tunnels IPv4 leaks on dual-stack Wi-Fi, and how an AAAA-only hostname tests the IPv6 path on its own. When failure is the safe outcome, you need two services and must tell "never connected" (no route) apart from "connected, bad answer" (route exists). Link-local `fe80::` vs. global addresses, and `ipaddress.is_global`.
 - Captive portals: how hotel Wi-Fi hijacks DNS or redirects HTTP until you log in, why an HTTPS request can only fail behind a portal while plain HTTP lets the portal show itself, and how OSes and browsers detect portals with a "known answer" probe (an empty 204). HTTP 511 Network Authentication Required. Why a probe must never follow redirects.
 - Who owns an IP: ASNs, BGP announcements, and the regional registries (ARIN, RIPE, ...). Registry country vs. geolocation country. Why a security tool must never look up ownership over plain HTTP on an untrusted network (the network can rewrite "ISP" into "hosting"). Reading an API's terms: "free" vs. "free for non-commercial use" vs. "no redistribution".
+- Parsing someone else's JSON defensively: a 200 isn't success, "unknown" can arrive in three different shapes, and one live call found a case (`"?"` for anycast 1.1.1.1) that the saved fixtures didn't have. Anycast: one IP served from many countries at once. Why a privacy-minded tool refuses to send private addresses to an API.
