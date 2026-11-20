@@ -25,6 +25,10 @@ class Classification(StrEnum):
     VPN_HOSTING = "vpn/hosting"
     ISP_RESIDENTIAL = "isp/residential"
     MOBILE = "mobile"
+    # A big public DNS operator (Cloudflare, Google, Quad9, OpenDNS). Kept apart
+    # from vpn/hosting so a DNS leak to 8.8.8.8 doesn't look like the VPN's own
+    # resolver. What it means is decided per check by the verdict.
+    PUBLIC_DNS = "public-dns"
     UNKNOWN = "unknown"  # looked up, but the owner fits no known class
 
 

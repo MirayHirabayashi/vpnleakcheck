@@ -2,8 +2,8 @@
 
 Updated at the end of every step. A new session starts by reading this file.
 
-**Current milestone:** M3 Ownership
-**Current step:** M3.3 (not started)
+**Current milestone:** M4 DNS and interfaces
+**Current step:** M4.1 (not started)
 
 ## Milestones
 
@@ -25,7 +25,7 @@ Each milestone is split into small steps. One step = one small change I can read
 ### M3 Ownership
 - [x] M3.1 Pick and verify an ownership API (ASN, org, country)
 - [x] M3.2 Ownership lookup with mocked tests
-- [ ] M3.3 `data/known_providers.json` + keyword classification rules
+- [x] M3.3 `data/known_providers.json` + keyword classification rules
 
 ### M4 DNS and interfaces
 - [ ] M4.1 `whoami.akamai.net` resolver lookup with dnspython
@@ -37,6 +37,7 @@ Each milestone is split into small steps. One step = one small change I can read
 - [ ] M5.2 Rich report
 - [ ] M5.3 `--json` output and exit codes
 - [ ] M5.4 Manual test on real networks
+- [ ] M5.5 User config overrides in `~/.config/vpnleakcheck/`: endpoints and `known_providers.json`, merged over the built-in defaults; a broken file gives a warning, never a crash
 
 ### M6 Baseline and history
 - [ ] M6.1 `baseline` save / show / clear, named baselines, VPN-up refusal
@@ -107,6 +108,15 @@ Record each choice and why, one line each, so later sessions don't reopen them.
 - Unknown country arrives three ways: empty `located_resources`, a missing key, or `"country": "?"` (real, for anycast addresses like 1.1.1.1). Only `^[A-Z]{2}$` is accepted.
 - `lookup_owner` never sends a non-global address (private, CGNAT `100.64/10`, loopback, link-local, unique-local, documentation): it means nothing on the internet and would leak local network details. Tests therefore use 8.8.8.8 / `2001:4860:4860::8888`, not the documentation ranges.
 - `lookup_owner` takes no `endpoints` argument (unlike the IP checks): the parsing is RIPEstat-specific, so swapping the URL for another service couldn't work anyway.
+- Classification (M3.3): `classify(owner, providers=None) -> Classification` in `checks/ownership.py` (where the spec puts it). Exact ASN match first, then whole-word, case-insensitive keywords in the holder name, else `unknown`. The caller only classifies when `lookup_owner` returned an `Owner`; no owner keeps `classification=None`.
+- Keyword precedence is mobile > isp/residential > vpn/hosting, the cautious order: calling an ISP "hosting" hides a leak, calling a VPN server an ISP is only a false alarm. It lives in code (`KEYWORD_PRECEDENCE`), not in the JSON, because it's a safety rule.
+- New `Classification.PUBLIC_DNS` (`"public-dns"`) for Cloudflare 13335, Google 15169, Quad9 19281, Cisco OpenDNS 36692. Assigned by exact ASN only (no keywords), so a DNS leak to 8.8.8.8 doesn't read as the VPN's resolver. `classify` only labels; M5.1 decides what it means per check.
+- `src/vpnleakcheck/data/known_providers.json`: an `asns` list (`asn`, `class`, `name` = RIPEstat holder) plus `keywords` per class, with `about` and `verified` keys in place of comments (JSON has none). 26 ASNs seeded, each verified via RIPEstat `as-overview` on 2026-11-19: hosting/VPN networks (M247, Datacamp, Hetzner, OVH, DigitalOcean, LeaseWeb, Vultr, Linode, AWS ×2, Google Cloud, Microsoft, Mullvad's 31173 Services, NordVPN's PacketHub ×2, Proton ×2), 4 public DNS, 4 US mobile, Comcast.
+- The ASN list catches what keywords can't: Verizon's mobile ASNs are registered as "CELLCO - Verizon Business", AT&T Mobility as "AT&T Enterprises" (hence the `mobility` keyword, matched in the handle).
+- Read with `importlib.resources.files("vpnleakcheck")`, so it works from an installed wheel (confirmed: uv_build includes `data/known_providers.json` with no config). Loaded once per run (`functools.cache`).
+- `load_providers(path)` validates and raises `ValueError` on any broken entry (bad ASN, unknown class, `unknown` assigned, duplicate ASN, keywords for `public-dns`, empty keyword), so a bad edit fails loudly instead of quietly making everything `unknown`. M5.5 turns that error into a warning for user override files.
+- User overrides for both endpoints and providers get their own step, M5.5, once the CLI runs the checks.
+- RIPEstat is sometimes slow: uncached `as-overview` queries took over 15 s in testing, and a 3.7 s answer was common. With the 5 s default timeout an ownership lookup will sometimes come back `None`; M5 must treat that as "owner unknown", not as an error.
 - `watch` (M7.2) must cache owners by IP (an IP's owner doesn't change in 30 s) to stay within RIPEstat's fair-use guidance.
 
 ## Open questions
@@ -114,10 +124,9 @@ Record each choice and why, one line each, so later sessions don't reopen them.
 Resolve each one before (or during) the step in brackets.
 
 - [M5.3] Exit code clash: Typer/Click exits with 2 on usage errors, but the spec uses 2 for UNCERTAIN and 3 for usage errors. Remap Typer's usage errors to 3, or change the table?
-- [M3.3 / M5.1] Public DNS resolvers (1.1.1.1, 8.8.8.8, Quad9) used outside the tunnel would classify as "hosting" and hide a DNS leak. Add a separate `public-dns` class that doesn't count as VPN?
 - [M5.1] Verdict rules: which verdict wins (and a detected captive portal should override everything with "log in first") when several rows match? What number counts as "too many checks unavailable"? How to handle a VPN on the router (no local VPN interface but the IPv4 is VPN-owned), which the current rules call NOT PROTECTED?
 - [M4.3] Linux VPN interface names don't always fit `wg*`/`tun*` (e.g. `nordlynx`, `wg0-mullvad`, custom WireGuard names). How much weight do interface names get vs. IPv4 ownership?
-- [M3.3] `known_providers.json` ships inside the installed package, so users can't edit it after `pipx install`. Ship defaults plus an optional override in the user config directory, as decided for endpoints? Also pick the step that builds both overrides.
+- [M5.1] What `public-dns` means per check: for `dns` it isn't the VPN's resolver (a leak or warning?); for `ipv4`/`ipv6` it may be a VPN like Cloudflare WARP (exits from AS13335). Also: how to treat `unknown` (e.g. Andrews & Arnold, a real UK ISP, has no keyword and comes out `unknown`).
 - [M5.4] Confirm my VPN lets me turn DNS protection off, for the manual test matrix.
 - [M7.3] README "Limitations" section: ownership lookups send your IP to a third party; browser DNS-over-HTTPS and WebRTC are invisible to a CLI.
 
@@ -136,3 +145,4 @@ Concepts I learned and want to share about.
 - Captive portals: how hotel Wi-Fi hijacks DNS or redirects HTTP until you log in, why an HTTPS request can only fail behind a portal while plain HTTP lets the portal show itself, and how OSes and browsers detect portals with a "known answer" probe (an empty 204). HTTP 511 Network Authentication Required. Why a probe must never follow redirects.
 - Who owns an IP: ASNs, BGP announcements, and the regional registries (ARIN, RIPE, ...). Registry country vs. geolocation country. Why a security tool must never look up ownership over plain HTTP on an untrusted network (the network can rewrite "ISP" into "hosting"). Reading an API's terms: "free" vs. "free for non-commercial use" vs. "no redistribution".
 - Parsing someone else's JSON defensively: a 200 isn't success, "unknown" can arrive in three different shapes, and one live call found a case (`"?"` for anycast 1.1.1.1) that the saved fixtures didn't have. Anycast: one IP served from many countries at once. Why a privacy-minded tool refuses to send private addresses to an API.
+- Heuristic classifiers and asymmetric errors: when one mistake hides a leak and the other only raises a false alarm, ties go to the cautious answer. Exact lists vs. keyword rules (Verizon's mobile network calls itself "Verizon Business"). Regex word boundaries (`\b`). Keeping safety rules in code and data in an editable file, and making a bad edit fail loudly. Shipping data files inside a Python package with `importlib.resources`.

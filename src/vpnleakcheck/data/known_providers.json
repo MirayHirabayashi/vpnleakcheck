@@ -1,0 +1,46 @@
+{
+  "about": "Rules for classifying who owns an IP. An exact ASN match wins; otherwise the holder name is searched for whole-word keywords, and if several classes match, mobile beats isp/residential beats vpn/hosting (the cautious answer). public-dns is assigned by ASN only. Each ASN's name is its RIPEstat holder, checked on the date in 'verified'.",
+  "verified": "2026-11-19",
+  "asns": [
+    {"asn": 9009, "class": "vpn/hosting", "name": "M247 M247 Europe SRL"},
+    {"asn": 60068, "class": "vpn/hosting", "name": "CDN77 Datacamp Limited"},
+    {"asn": 24940, "class": "vpn/hosting", "name": "HETZNER-AS Hetzner Online GmbH"},
+    {"asn": 16276, "class": "vpn/hosting", "name": "OVH OVH SAS"},
+    {"asn": 14061, "class": "vpn/hosting", "name": "DIGITALOCEAN-ASN - DigitalOcean, LLC"},
+    {"asn": 60781, "class": "vpn/hosting", "name": "LEASEWEB-NL-AMS-01 LeaseWeb Netherlands B.V."},
+    {"asn": 20473, "class": "vpn/hosting", "name": "AS-VULTR - The Constant Company, LLC"},
+    {"asn": 63949, "class": "vpn/hosting", "name": "AKAMAI-LINODE-AP - Akamai Connected Cloud"},
+    {"asn": 16509, "class": "vpn/hosting", "name": "AMAZON-02 - Amazon.com, Inc."},
+    {"asn": 14618, "class": "vpn/hosting", "name": "AMAZON-AES - Amazon.com, Inc."},
+    {"asn": 396982, "class": "vpn/hosting", "name": "GOOGLE-CLOUD-PLATFORM - Google LLC"},
+    {"asn": 8075, "class": "vpn/hosting", "name": "MICROSOFT-CORP-MSN-AS-BLOCK - Microsoft Corporation"},
+    {"asn": 39351, "class": "vpn/hosting", "name": "ESAB-AS 31173 Services AB"},
+    {"asn": 136787, "class": "vpn/hosting", "name": "PACKETHUBSA-AS-AP - PacketHub S.A."},
+    {"asn": 147049, "class": "vpn/hosting", "name": "PACKETHUBSA-AS-AP - PacketHub S.A."},
+    {"asn": 62371, "class": "vpn/hosting", "name": "PROTON Proton AG"},
+    {"asn": 209103, "class": "vpn/hosting", "name": "ProtonVPN Proton AG"},
+
+    {"asn": 13335, "class": "public-dns", "name": "CLOUDFLARENET - Cloudflare, Inc."},
+    {"asn": 15169, "class": "public-dns", "name": "GOOGLE - Google LLC"},
+    {"asn": 19281, "class": "public-dns", "name": "QUAD9-AS-1 - Quad9"},
+    {"asn": 36692, "class": "public-dns", "name": "CISCO-UMBRELLA - Cisco OpenDNS, LLC"},
+
+    {"asn": 21928, "class": "mobile", "name": "T-MOBILE-AS21928 - T-Mobile USA, Inc."},
+    {"asn": 22394, "class": "mobile", "name": "CELLCO - Verizon Business"},
+    {"asn": 6167, "class": "mobile", "name": "CELLCO-PART - Verizon Business"},
+    {"asn": 20057, "class": "mobile", "name": "ATT-MOBILITY-LLC-AS20057 - AT&T Enterprises, LLC"},
+
+    {"asn": 7922, "class": "isp/residential", "name": "COMCAST-7922 - Comcast Cable Communications, LLC"}
+  ],
+  "keywords": {
+    "mobile": ["mobile", "mobility", "wireless", "cellular", "lte"],
+    "isp/residential": [
+      "broadband", "cable", "dsl", "fiber", "fibre", "isp", "residential",
+      "telecom", "telekom", "telecommunications", "communications"
+    ],
+    "vpn/hosting": [
+      "hosting", "datacenter", "data center", "vps", "server", "servers",
+      "cloud", "colocation", "dedicated", "vpn"
+    ]
+  }
+}

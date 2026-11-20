@@ -1,17 +1,24 @@
 """IP ownership: whose network does an address belong to, and where is it used?
 
 This is a helper, not a check of its own. The IPv4, IPv6 and DNS checks find
-an address; `lookup_owner` then says who owns it, and a later step puts that
-`Owner` on their results. Classification ("vpn/hosting", "isp/residential",
-...) is decided from the owner in a separate step.
+an address; `lookup_owner` then says who owns it, `classify` says what kind of
+network that is ("vpn/hosting", "isp/residential", ...), and a later step puts
+both on their results.
 
 The data comes from RIPEstat in two requests sent at the same time: one for
 the ASN and holder of the routed block, one for the country.
 """
 
 import asyncio
+import json
 import re
+from collections.abc import Mapping
+from dataclasses import dataclass
+from functools import cache
+from importlib.resources import files
+from importlib.resources.abc import Traversable
 from ipaddress import ip_address
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -22,7 +29,7 @@ from vpnleakcheck.endpoints import (
     RIPESTAT_SOURCEAPP,
     Endpoint,
 )
-from vpnleakcheck.result import Owner
+from vpnleakcheck.result import Classification, Owner
 
 _COUNTRY_CODE = re.compile(r"[A-Z]{2}")
 
@@ -118,3 +125,106 @@ async def lookup_owner(client: httpx.AsyncClient, ip: str) -> Owner | None:
     if asn is None and org is None and country is None:
         return None
     return Owner(org=org, asn=asn, country=country)
+
+
+# ------------------------------------------------------- classification ----
+
+# When an owner's name matches keywords of several classes, the first class
+# listed here wins. Calling an ISP "hosting" would hide a leak, while calling a
+# VPN server an ISP only causes a false alarm, so the cautious classes come
+# first. This order is a safety rule, so it lives in code, not in the data file.
+# public-dns is not here: it is assigned by exact ASN only.
+KEYWORD_PRECEDENCE = (
+    Classification.MOBILE,
+    Classification.ISP_RESIDENTIAL,
+    Classification.VPN_HOSTING,
+)
+
+DEFAULT_PROVIDERS_FILE = files("vpnleakcheck") / "data" / "known_providers.json"
+
+
+@dataclass(frozen=True)
+class Providers:
+    """Classification rules loaded from a known_providers.json file."""
+
+    asns: Mapping[int, Classification]
+    # One compiled pattern per class, matching any of its keywords as a whole
+    # word, ignoring case.
+    keywords: Mapping[Classification, re.Pattern[str]]
+
+
+def _keyword_pattern(words: list[str]) -> re.Pattern[str]:
+    # \b is a word boundary, so "mobile" matches "T-MOBILE-AS21928" but
+    # "cloud" doesn't match "CLOUDFLARENET".
+    alternatives = "|".join(re.escape(word) for word in words)
+    return re.compile(rf"\b(?:{alternatives})\b", re.IGNORECASE)
+
+
+def load_providers(source: Traversable | Path) -> Providers:
+    """Read and check a known_providers.json file.
+
+    Raises ValueError with a readable message if the file is broken, so a bad
+    edit fails loudly instead of silently classifying everything as unknown.
+    """
+    raw = json.loads(source.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError("known_providers.json must be a JSON object")
+
+    asns: dict[int, Classification] = {}
+    for entry in raw.get("asns", []):
+        asn = entry.get("asn") if isinstance(entry, dict) else None
+        if not isinstance(asn, int) or isinstance(asn, bool) or asn <= 0:
+            raise ValueError(f"Bad ASN entry: {entry!r}")
+        try:
+            cls = Classification(entry.get("class"))
+        except ValueError:
+            raise ValueError(f"AS{asn}: unknown class {entry.get('class')!r}") from None
+        if cls is Classification.UNKNOWN:
+            raise ValueError(f"AS{asn}: 'unknown' can't be assigned, leave it out")
+        if asn in asns:
+            raise ValueError(f"AS{asn} is listed more than once")
+        asns[asn] = cls
+
+    keywords: dict[Classification, re.Pattern[str]] = {}
+    for name, words in raw.get("keywords", {}).items():
+        try:
+            cls = Classification(name)
+        except ValueError:
+            raise ValueError(f"Unknown keyword class {name!r}") from None
+        if cls not in KEYWORD_PRECEDENCE:
+            raise ValueError(f"Class {name!r} can't have keywords")
+        if not isinstance(words, list) or not all(
+            isinstance(word, str) and word.strip() for word in words
+        ):
+            raise ValueError(f"Keywords for {name!r} must be non-empty strings")
+        if words:
+            keywords[cls] = _keyword_pattern([word.strip() for word in words])
+
+    return Providers(asns=asns, keywords=keywords)
+
+
+@cache
+def default_providers() -> Providers:
+    """The rules shipped with vpnleakcheck, read once per run."""
+    return load_providers(DEFAULT_PROVIDERS_FILE)
+
+
+def classify(owner: Owner, providers: Providers | None = None) -> Classification:
+    """Say what kind of network `owner` is.
+
+    An exact ASN match wins. Otherwise the holder name is searched for
+    keywords in KEYWORD_PRECEDENCE order. No match is UNKNOWN: looked up, but
+    fits no class. (A failed lookup has no Owner at all, so it never gets here.)
+    """
+    rules = providers or default_providers()
+
+    if owner.asn is not None and owner.asn in rules.asns:
+        return rules.asns[owner.asn]
+
+    if owner.org:
+        for cls in KEYWORD_PRECEDENCE:
+            pattern = rules.keywords.get(cls)
+            if pattern is not None and pattern.search(owner.org):
+                return cls
+
+    return Classification.UNKNOWN
