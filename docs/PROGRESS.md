@@ -3,7 +3,7 @@
 Updated at the end of every step. A new session starts by reading this file.
 
 **Current milestone:** M4 DNS and interfaces
-**Current step:** M4.1 (not started)
+**Current step:** M4.2 (not started)
 
 ## Milestones
 
@@ -28,7 +28,7 @@ Each milestone is split into small steps. One step = one small change I can read
 - [x] M3.3 `data/known_providers.json` + keyword classification rules
 
 ### M4 DNS and interfaces
-- [ ] M4.1 `whoami.akamai.net` resolver lookup with dnspython
+- [x] M4.1 `whoami.akamai.net` resolver lookup with dnspython
 - [ ] M4.2 Configured resolvers (`scutil --dns` on macOS, `/etc/resolv.conf` / resolvectl on Linux)
 - [ ] M4.3 VPN interface detection with psutil (watch for macOS system `utun` interfaces)
 
@@ -118,6 +118,13 @@ Record each choice and why, one line each, so later sessions don't reopen them.
 - User overrides for both endpoints and providers get their own step, M5.5, once the CLI runs the checks.
 - RIPEstat is sometimes slow: uncached `as-overview` queries took over 15 s in testing, and a 3.7 s answer was common. With the 5 s default timeout an ownership lookup will sometimes come back `None`; M5 must treat that as "owner unknown", not as an error.
 - `watch` (M7.2) must cache owners by IP (an IP's owner doesn't change in 30 s) to stay within RIPEstat's fair-use guidance.
+- DNS resolver check (M4.1): dnspython's `dns.asyncresolver`, chosen over the OS resolver (`loop.getaddrinfo`). It's async, has a real timeout (`lifetime`), separate exceptions per failure, and is easy to fake. `getaddrinfo` runs in a thread with no real timeout, so a dropped DNS query could hold the tool at exit for 30 s or more.
+- Known gap: dnspython sends plain DNS to the servers in `/etc/resolv.conf`. On macOS with a system-wide encrypted DNS profile (NextDNS, 1.1.1.1 apps) apps use that instead, so the check can raise a false alarm, never hide a leak. Linux with systemd-resolved is fine (the `127.0.0.53` stub forwards). Goes in the M7.3 README Limitations.
+- Who's-asking name: `whoami.akamai.net` A only (`DNS_WHOAMI_NAME` in `endpoints.py`, a bare name, not an `Endpoint`), verified 2026-11-21 with dig. AAAA gives NXDOMAIN. One source only: Google's `o-o.myaddr.l.google.com` TXT gave NXDOMAIN on the test network.
+- `check_dns(resolver)` in `checks/dns.py` returns a `CheckResult` named `dns`. A global IPv4 answer is `ok` with the resolver's IP as `value`. A non-global answer (private, CGNAT, loopback, `0.0.0.0`) is `warning`, because Akamai can only see a public address, so the network made it up (portal or DNS filter). Any lookup failure is `unavailable`. Owner and class get added later, as for the IPs.
+- The caller owns the resolver (like the httpx client): `make_system_resolver(timeout)` sets `lifetime` to `--timeout`. With no DNS config it returns an empty resolver, whose lookup fails with `NoNameservers`, so the check reports `unavailable` instead of crashing. Tests pass a `FakeResolver` that returns real dnspython `RRset`s or raises real dnspython errors.
+- dnspython is a runtime dependency (added in M4.1, 2.9.2).
+- The macOS CI job promised for M4 is still to do; add it in M4.2, where `scutil --dns` is the first macOS-only code.
 
 ## Open questions
 
@@ -146,3 +153,4 @@ Concepts I learned and want to share about.
 - Who owns an IP: ASNs, BGP announcements, and the regional registries (ARIN, RIPE, ...). Registry country vs. geolocation country. Why a security tool must never look up ownership over plain HTTP on an untrusted network (the network can rewrite "ISP" into "hosting"). Reading an API's terms: "free" vs. "free for non-commercial use" vs. "no redistribution".
 - Parsing someone else's JSON defensively: a 200 isn't success, "unknown" can arrive in three different shapes, and one live call found a case (`"?"` for anycast 1.1.1.1) that the saved fixtures didn't have. Anycast: one IP served from many countries at once. Why a privacy-minded tool refuses to send private addresses to an API.
 - Heuristic classifiers and asymmetric errors: when one mistake hides a leak and the other only raises a false alarm, ties go to the cautious answer. Exact lists vs. keyword rules (Verizon's mobile network calls itself "Verizon Business"). Regex word boundaries (`\b`). Keeping safety rules in code and data in an editable file, and making a bad edit fail loudly. Shipping data files inside a Python package with `importlib.resources`.
+- DNS leaks from the inside: stub vs. recursive vs. authoritative resolvers, and why the resolver you configured (often the router) isn't the one doing the work. How a "who's asking" name like `whoami.akamai.net` makes the authoritative server report the resolver's own address. Why a private address in that answer proves the network is tampering with DNS. Library resolvers (`/etc/resolv.conf`) vs. the OS resolver, and how encrypted DNS profiles open a gap between them.

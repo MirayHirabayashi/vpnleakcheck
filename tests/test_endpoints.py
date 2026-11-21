@@ -12,6 +12,7 @@ import pytest
 
 from vpnleakcheck.endpoints import (
     CAPTIVE_PORTAL_ENDPOINT,
+    DNS_WHOAMI_NAME,
     IPV4_ENDPOINTS,
     IPV6_ENDPOINTS,
     OWNERSHIP_ASN_ENDPOINT,
@@ -100,3 +101,8 @@ def test_ownership_url_has_no_query(endpoint: Endpoint) -> None:
 def test_ripestat_sourceapp_format() -> None:
     # RIPEstat's rule: letters, digits, hyphens and underscores, no spaces.
     assert re.fullmatch(r"[A-Za-z0-9_-]+", RIPESTAT_SOURCEAPP)
+
+
+def test_dns_whoami_name_is_a_bare_hostname() -> None:
+    # A DNS name, not a URL: no scheme, no path, no trailing dot.
+    assert re.fullmatch(r"[a-z0-9-]+(\.[a-z0-9-]+)+", DNS_WHOAMI_NAME)

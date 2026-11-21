@@ -94,3 +94,15 @@ OWNERSHIP_COUNTRY_ENDPOINT = Endpoint(
 CAPTIVE_PORTAL_ENDPOINT = Endpoint(
     name="firefox", url="http://firefox-portal-detection.com/generate_204"
 )
+
+# "Who's asking" DNS name: a DNS name, not a URL, so it isn't an Endpoint.
+# Akamai's authoritative server answers an A query for it with the IP address
+# that asked, which is the recursive resolver doing our lookups (not our own
+# address, and not a forwarder such as the home router in between).
+#
+# Verified 2026-11-21 with dig: the A query answered the resolver's IPv4 with
+# a 15 s TTL; AAAA gives NXDOMAIN, so ask for A only. Free, no key, no terms
+# beyond being an openly used Akamai diagnostic name. Rejected Google's
+# o-o.myaddr.l.google.com TXT as a second source: the resolver on the test
+# network answered NXDOMAIN for it.
+DNS_WHOAMI_NAME = "whoami.akamai.net"
