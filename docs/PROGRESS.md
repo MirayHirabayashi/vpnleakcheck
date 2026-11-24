@@ -3,7 +3,7 @@
 Updated at the end of every step. A new session starts by reading this file.
 
 **Current milestone:** M4 DNS and interfaces
-**Current step:** M4.2 (not started)
+**Current step:** M4.3 (not started)
 
 ## Milestones
 
@@ -29,7 +29,7 @@ Each milestone is split into small steps. One step = one small change I can read
 
 ### M4 DNS and interfaces
 - [x] M4.1 `whoami.akamai.net` resolver lookup with dnspython
-- [ ] M4.2 Configured resolvers (`scutil --dns` on macOS, `/etc/resolv.conf` / resolvectl on Linux)
+- [x] M4.2 Configured resolvers (`scutil --dns` on macOS, `/etc/resolv.conf` / resolvectl on Linux)
 - [ ] M4.3 VPN interface detection with psutil (watch for macOS system `utun` interfaces)
 
 ### M5 Verdict and report (Level 1 done)
@@ -70,7 +70,7 @@ Record each choice and why, one line each, so later sessions don't reopen them.
 - M1.4 repurposed: `.gitignore`, README and LICENSE already existed, so the step became a README "Development" section plus CI. GitHub Actions is free for public repos.
 - CI (`.github/workflows/ci.yml`) runs on pushes to `main` and on pull requests, on `ubuntu-latest`, with a matrix of Python 3.11 (oldest supported) and 3.13 (development). Steps: `uv sync --locked`, `ruff check`, `ruff format --check`, `pytest`. CI never uses `--fix`.
 - Actions are pinned to full commit SHAs (with the version in a comment), as the uv docs do, so a moved tag can't change what runs. Update the SHA and the comment together.
-- CI runs on Linux only for now. Add a `macos-latest` job at M4, when platform-specific code (`scutil --dns`, `utun`) arrives.
+- CI runs on Linux and macOS (`ubuntu-latest` + `macos-latest`, added in M4.2 when `scutil --dns` arrived), each with Python 3.11 and 3.13.
 - The shared result object is `CheckResult` in `src/vpnleakcheck/result.py`: a frozen dataclass (standard library, immutable once a check returns it, `dataclasses.asdict()` feeds `--json`). Only `name` and `status` are required; `value`, `owner` and `classification` default to `None` and `reason` to `""`.
 - `Status` (`ok`, `leak`, `unavailable`) and `Classification` (`vpn/hosting`, `isp/residential`, `mobile`, `unknown`) are `StrEnum`s: a typo fails at once, and members are real strings so they serialise to JSON unchanged. Add a `warning` status in M2.3 only if "services disagree" needs it.
 - `classification=None` means "doesn't apply to this check" (e.g. interfaces); `Classification.UNKNOWN` means "looked up, but fits no class".
@@ -124,7 +124,11 @@ Record each choice and why, one line each, so later sessions don't reopen them.
 - `check_dns(resolver)` in `checks/dns.py` returns a `CheckResult` named `dns`. A global IPv4 answer is `ok` with the resolver's IP as `value`. A non-global answer (private, CGNAT, loopback, `0.0.0.0`) is `warning`, because Akamai can only see a public address, so the network made it up (portal or DNS filter). Any lookup failure is `unavailable`. Owner and class get added later, as for the IPs.
 - The caller owns the resolver (like the httpx client): `make_system_resolver(timeout)` sets `lifetime` to `--timeout`. With no DNS config it returns an empty resolver, whose lookup fails with `NoNameservers`, so the check reports `unavailable` instead of crashing. Tests pass a `FakeResolver` that returns real dnspython `RRset`s or raises real dnspython errors.
 - dnspython is a runtime dependency (added in M4.1, 2.9.2).
-- The macOS CI job promised for M4 is still to do; add it in M4.2, where `scutil --dns` is the first macOS-only code.
+- Configured resolvers (M4.2) are a helper, not a check: `get_configured_resolvers() -> list[ConfiguredResolver]` in `checks/resolvers.py` (`address`, `interface`), like `lookup_owner`. It keeps the interface per server, which M4.3 and the verdict need to tell a VPN resolver (on `utun*`) from the router's. It doesn't match the spec JSON, so M5 decides how to show it. It blocks briefly (runs a command), so async code calls it via `asyncio.to_thread`.
+- Sources: macOS `scutil --dns`; Linux `resolvectl status` first (systemd-resolved's `/etc/resolv.conf` only shows the `127.0.0.53` stub), then `/etc/resolv.conf`. If a command is missing, times out (5 s) or fails, fall back to the file; if that fails too, return an empty list. Never raises.
+- From `scutil --dns` we skip entries with a `domain :` line (mdns `.local`, split-DNS for one company domain): they don't answer general lookups. The same server appears twice (plain and "scoped"); we dedupe by address and keep the copy with an interface. IPv6 `%en0` zone suffixes are stripped.
+- Parsers read saved output (`tests/fixtures/scutil_dns_*.txt`, `resolvectl_status.txt`, `resolv_conf_plain.txt`), so they're tested on every OS; `get_configured_resolvers` takes fake `run`/`read` functions. Real `resolvectl` prints `Current DNS Server:` at column 0, so only `Global`/`Link N` lines start a new section.
+- Unverified on a real Linux machine: the `resolvectl` fixture is written from the documented format. Check it in the M5.4 manual test.
 
 ## Open questions
 
@@ -154,3 +158,4 @@ Concepts I learned and want to share about.
 - Parsing someone else's JSON defensively: a 200 isn't success, "unknown" can arrive in three different shapes, and one live call found a case (`"?"` for anycast 1.1.1.1) that the saved fixtures didn't have. Anycast: one IP served from many countries at once. Why a privacy-minded tool refuses to send private addresses to an API.
 - Heuristic classifiers and asymmetric errors: when one mistake hides a leak and the other only raises a false alarm, ties go to the cautious answer. Exact lists vs. keyword rules (Verizon's mobile network calls itself "Verizon Business"). Regex word boundaries (`\b`). Keeping safety rules in code and data in an editable file, and making a bad edit fail loudly. Shipping data files inside a Python package with `importlib.resources`.
 - DNS leaks from the inside: stub vs. recursive vs. authoritative resolvers, and why the resolver you configured (often the router) isn't the one doing the work. How a "who's asking" name like `whoami.akamai.net` makes the authoritative server report the resolver's own address. Why a private address in that answer proves the network is tampering with DNS. Library resolvers (`/etc/resolv.conf`) vs. the OS resolver, and how encrypted DNS profiles open a gap between them.
+- Reading what the OS is configured to ask vs. what really answers: stub config (router `192.168.0.1`) vs. the recursive resolver Akamai sees. How `scutil --dns` shows per-interface and per-domain resolvers, why a VPN adds its own scoped resolver on a `utun`, and why parsing real tool output means testing against saved samples (and finding your fixture format was right and your parser wrong).

@@ -12,13 +12,15 @@ permissions:
 
 jobs:
   test:
-    name: Lint and test (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    name: Lint and test (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
     strategy:
       # Let the other Python version finish even if one fails,
       # so we can see whether a failure is version-specific.
       fail-fast: false
       matrix:
+        # macOS is the first-class platform (scutil, utun); Linux is second.
+        os: [ubuntu-latest, macos-latest]
         # Oldest version we support, and the one we develop on.
         python-version: ["3.11", "3.13"]
 

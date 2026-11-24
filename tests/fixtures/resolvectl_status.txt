@@ -1,0 +1,16 @@
+Global
+       Protocols: -LLMNR -mDNS -DNSOverTLS DNSSEC=no/unsupported
+resolv.conf mode: stub
+
+Link 2 (enp0s3)
+    Current Scopes: DNS
+         Protocols: +DefaultRoute -LLMNR -mDNS -DNSOverTLS DNSSEC=no/unsupported
+Current DNS Server: 10.0.2.3
+       DNS Servers: 10.0.2.3 10.0.2.4
+        DNS Domain: lan
+
+Link 5 (wg0)
+    Current Scopes: DNS
+         Protocols: -DefaultRoute -LLMNR -mDNS -DNSOverTLS DNSSEC=no/unsupported
+       DNS Servers: 10.2.0.1
+                    fd00::1
